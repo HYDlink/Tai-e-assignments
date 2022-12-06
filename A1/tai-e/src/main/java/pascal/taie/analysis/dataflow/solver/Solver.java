@@ -22,9 +22,18 @@
 
 package pascal.taie.analysis.dataflow.solver;
 
+import org.checkerframework.common.aliasing.qual.LeakedToResult;
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
+import pascal.taie.analysis.dataflow.fact.SetFact;
 import pascal.taie.analysis.graph.cfg.CFG;
+import pascal.taie.analysis.graph.cfg.Edge;
+import pascal.taie.ir.exp.LValue;
+import pascal.taie.ir.exp.Var;
+import pascal.taie.ir.stmt.Stmt;
+
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * Base class for data-flow analysis solver, which provides common
@@ -82,6 +91,16 @@ public abstract class Solver<Node, Fact> {
 
     protected void initializeBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        Fact boundaryFact = analysis.newBoundaryFact(cfg);
+        Node exit = cfg.getExit();
+        result.setInFact(exit, boundaryFact);
+        
+        for (Node node : cfg.getNodes()) {
+            Fact initialFact = analysis.newInitialFact();
+            result.setInFact(node, initialFact);
+            Fact initialOutFact = analysis.newInitialFact();
+            result.setOutFact(node, initialOutFact);
+        }
     }
 
     /**

@@ -22,11 +22,22 @@
 
 package pascal.taie.analysis.dataflow.analysis;
 
+import org.slf4j.impl.StaticMDCBinder;
 import pascal.taie.analysis.dataflow.fact.SetFact;
 import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;
+import pascal.taie.ir.DefaultIR;
+import pascal.taie.ir.exp.FieldAccess;
+import pascal.taie.ir.exp.LValue;
+import pascal.taie.ir.exp.RValue;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.Stmt;
+import soot.jimple.toolkits.invoke.StaticMethodBinder;
+
+import java.awt.*;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Implementation of classic live variable analysis.
@@ -48,23 +59,42 @@ public class LiveVariableAnalysis extends
     @Override
     public SetFact<Var> newBoundaryFact(CFG<Stmt> cfg) {
         // TODO - finish me
-        return null;
+        return new SetFact<>();
     }
 
     @Override
     public SetFact<Var> newInitialFact() {
         // TODO - finish me
-        return null;
+        return new SetFact<>();
     }
 
     @Override
     public void meetInto(SetFact<Var> fact, SetFact<Var> target) {
         // TODO - finish me
+        target.union(fact);
     }
 
     @Override
     public boolean transferNode(Stmt stmt, SetFact<Var> in, SetFact<Var> out) {
         // TODO - finish me
-        return false;
+        // use U (out - def)
+        String log = "";
+        log += "TRANSFER: " + stmt + "\n";
+        if (stmt.getDef().isPresent()) {
+            LValue lValue = stmt.getDef().get();
+            out.remove(((Var) lValue));
+            log += "\tremove: " + lValue + ";";
+        }
+        SetFact<Var> varSetFact = new SetFact<>();
+        var uses = stmt.getUses().stream()
+                .filter(use -> use instanceof Var).toList();
+        uses.forEach(use -> varSetFact.add((Var)use));
+        
+        var old_union = in.copy();
+
+        in.union(out.unionWith(varSetFact));
+        log += "\tuses: " + uses + "\tresults: " + in;
+        System.out.println(log);
+        return !in.equals(old_union);
     }
 }
