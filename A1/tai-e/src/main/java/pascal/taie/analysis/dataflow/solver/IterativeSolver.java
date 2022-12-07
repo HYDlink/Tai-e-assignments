@@ -49,20 +49,15 @@ class IterativeSolver<Node, Fact> extends Solver<Node, Fact> {
         // TODO - finish me
         boolean changed = true;
         int iterate_times = 0;
-        var iterate_nodes = new java.util.ArrayList<>(cfg.getNodes().stream().toList());
-        Collections.reverse(iterate_nodes);
         while (changed) {
             changed = false;
-            System.out.printf("iterate times: %d\n", iterate_times);
+//            System.out.printf("iterate times: %d\n", iterate_times);
             iterate_times++;
-            for (Node node : iterate_nodes) {
-                var stmt = (Stmt)node;
-
+            for (Node node : cfg) {
                 // union all input
                 var target = analysis.newInitialFact();
                 assert target != null;
-                for (var nodeEdge : cfg.getOutEdgesOf(node)) {
-                    Node out = nodeEdge.getTarget();
+                for (var out : cfg.getSuccsOf(node)) {
                     Fact inFact = result.getInFact(out);
                     analysis.meetInto(inFact, target);
                 }

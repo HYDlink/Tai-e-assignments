@@ -80,11 +80,7 @@ public class LiveVariableAnalysis extends
         // use U (out - def)
         String log = "";
         log += "TRANSFER: " + stmt + "\n";
-        if (stmt.getDef().isPresent()) {
-            LValue lValue = stmt.getDef().get();
-            out.remove(((Var) lValue));
-            log += "\tremove: " + lValue + ";";
-        }
+        
         SetFact<Var> varSetFact = new SetFact<>();
         var uses = stmt.getUses().stream()
                 .filter(use -> use instanceof Var).toList();
@@ -92,9 +88,22 @@ public class LiveVariableAnalysis extends
         
         var old_union = in.copy();
 
-        in.union(out.unionWith(varSetFact));
+        in.union(out);
+        if (stmt.getDef().isPresent()) {
+            LValue lValue = stmt.getDef().get();
+            if (lValue instanceof Var) {
+                // 之前使用了 out.remove，导致对 out 本身的修改，直接导致结果的错误，查了很久
+                // 原因是陷入了 IN = use U (out - def) 的运算顺序的临近误区
+                // 最后改成了 in = in U out, in = in - def, in = in U use 的执行顺序
+                in.remove(((Var) lValue));
+                log += "\tremove: " + lValue + ";";
+            }
+        }
+        
+        in.union(varSetFact);
+        
         log += "\tuses: " + uses + "\tresults: " + in;
-        System.out.println(log);
+//        System.out.println(log);
         return !in.equals(old_union);
     }
 }

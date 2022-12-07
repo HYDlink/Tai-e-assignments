@@ -67,7 +67,16 @@ public abstract class Solver<Node, Fact> {
     public DataflowResult<Node, Fact> solve(CFG<Node> cfg) {
         DataflowResult<Node, Fact> result = initialize(cfg);
         doSolve(cfg, result);
+        LogResult(cfg, result);
         return result;
+    }
+    
+    public void LogResult(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
+        for (Node node : cfg.getNodes()) {
+            Fact inFact = result.getInFact(node);
+            Fact outFact = result.getOutFact(node);
+            System.out.println("\tIN: " + inFact + "\n" + node + "\n\tOUT: " + outFact + "\n");
+        }
     }
 
     /**
