@@ -65,14 +65,31 @@ public class DeadCodeDetection extends MethodAnalysis {
         // Your task is to recognize dead code in ir and add it to deadCode
         Set<Stmt> peekedCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
         DFS(peekedCode, cfg, cfg.getEntry(), constants);
+        peekedCode.add(cfg.getExit());
+        
+        peekedCode.removeIf(stmt -> {
+            if (!stmt.getUses().stream().allMatch(DeadCodeDetection::hasNoSideEffect)) 
+                return false;
+            if (stmt.getDef().isPresent()) {
+                LValue lValue = stmt.getDef().get();
+                if (lValue instanceof Var var) {
+                    var dead = !liveVars.getOutFact(stmt).contains(var);
+                    System.out.println("Dead Assign Check " + 
+                            (dead ? "<T>" : "<F>") + stmt);
+                    return dead;
+                }
+            }
+            return false;
+        });
+        
         cfg.getNodes().stream()
-                .filter(o -> !peekedCode.contains(o) && o != cfg.getExit() && o != cfg.getEntry())
+                .filter(o -> !peekedCode.contains(o))
                 .forEach(deadCode::add);
         return deadCode;
     }
     
     public static String GetId(Stmt stmt) {
-        return "[" + stmt.getIndex() + "@L" + stmt.getLineNumber() + "]";        
+        return "[" + stmt.getIndex() + "@L" + stmt.getLineNumber() + "]";     
     }
     
     public void DFS(Set<Stmt> peeked, CFG<Stmt> cfg, Stmt current, 

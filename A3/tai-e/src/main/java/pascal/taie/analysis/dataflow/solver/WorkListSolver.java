@@ -88,7 +88,7 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
                     }
                 }
             }
-            result.setOutFact(node, in);
+            result.setInFact(node, in);
         }
     }
 }
