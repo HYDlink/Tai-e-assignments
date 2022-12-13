@@ -80,7 +80,7 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
             result.setOutFact(node, meet);
             var in = result.getInFact(node);
 
-            if (analysis.transferNode(node, meet, in)) {
+            if (analysis.transferNode(node, in, meet)) {
                 var predsOf = cfg.getPredsOf(node);
                 for (Node suc : predsOf) {
                     if (!workList.contains(suc)) {
