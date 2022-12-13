@@ -33,17 +33,9 @@ import pascal.taie.analysis.graph.cfg.CFGBuilder;
 import pascal.taie.analysis.graph.cfg.Edge;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.IR;
-import pascal.taie.ir.exp.ArithmeticExp;
-import pascal.taie.ir.exp.ArrayAccess;
-import pascal.taie.ir.exp.CastExp;
-import pascal.taie.ir.exp.FieldAccess;
-import pascal.taie.ir.exp.NewExp;
-import pascal.taie.ir.exp.RValue;
-import pascal.taie.ir.exp.Var;
-import pascal.taie.ir.stmt.AssignStmt;
-import pascal.taie.ir.stmt.If;
-import pascal.taie.ir.stmt.Stmt;
-import pascal.taie.ir.stmt.SwitchStmt;
+import pascal.taie.ir.exp.*;
+import pascal.taie.ir.stmt.*;
+import pascal.taie.util.collection.Pair;
 
 import java.util.Comparator;
 import java.util.Set;
@@ -71,7 +63,73 @@ public class DeadCodeDetection extends MethodAnalysis {
         Set<Stmt> deadCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
         // TODO - finish me
         // Your task is to recognize dead code in ir and add it to deadCode
+        Set<Stmt> peekedCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
+        DFS(peekedCode, cfg, cfg.getEntry(), constants);
+        cfg.getNodes().stream()
+                .filter(o -> !peekedCode.contains(o) && o != cfg.getExit() && o != cfg.getEntry())
+                .forEach(deadCode::add);
         return deadCode;
+    }
+    
+    public static String GetId(Stmt stmt) {
+        return "[" + stmt.getIndex() + "@L" + stmt.getLineNumber() + "]";        
+    }
+    
+    public void DFS(Set<Stmt> peeked, CFG<Stmt> cfg, Stmt current, 
+                    DataflowResult<Stmt, CPFact> constants) {
+        peeked.add(current);
+        for (Edge<Stmt> edge : cfg.getOutEdgesOf(current)) {
+            Stmt target = edge.getTarget();
+            if (peeked.contains(target))
+                continue;
+            // 检查语句是否为条件语句，
+            // 如果语句是条件语句，
+            //   检查条件检查的变量是否为常量，
+            //     如果是，选择固定的方向走，不能走的方向直接跳过
+            //     如果不是，照常遍历
+            // TODO 检查 Exception?
+            if (current instanceof JumpStmt) {
+                // 检查 inFact 是否没被赋值
+                CPFact inFact = constants.getInFact(current);
+                
+                if (current instanceof If ifStmt) {
+                    ConditionExp condition = ifStmt.getCondition();
+                    Value evaluate = ConstantPropagation.evaluate(condition, inFact);
+                    if (evaluate.isConstant()) {
+                        var isTrue = evaluate.getConstant() == 1;
+                        System.out.println("If statement " + GetId(ifStmt) + ifStmt + 
+                                (isTrue ? "<T>" : "<F>"));
+                        // Question: 如果当前分支的跳转本身就是不需要的代码，那么也得把自己移除
+                        // 比如 if 1 < 2 : goto 3，这句话本身也是没用的 dead code
+                        if (isTrue && edge.getKind() != Edge.Kind.IF_TRUE)
+                            continue;
+                        if (!isTrue && edge.getKind() != Edge.Kind.IF_FALSE) {
+//                            peeked.remove(current);
+                            continue;
+                        }
+                    }
+                } else if (current instanceof SwitchStmt switchStmt) {
+                    Var var = switchStmt.getVar();
+                    Value value = inFact.get(var);
+                    if (value.isConstant()) {
+                        int constant = value.getConstant();
+                        var targetStmt = switchStmt.getCaseTargets().stream()
+                                .filter(kv -> kv.first() == constant).findFirst()
+                                .orElse(new Pair<>(0, switchStmt.getDefaultTarget()))
+                                .second();
+                        System.out.println("Switch statement " +
+                                GetId(switchStmt)
+                                + constant);
+                        if (targetStmt != target) {
+                            System.out.println("Ignored");
+                            continue;
+                        }
+                    }
+                }
+            }
+            
+            DFS(peeked, cfg, target, constants);
+        }
     }
 
     /**

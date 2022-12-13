@@ -26,6 +26,8 @@ import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
 
+import java.util.LinkedList;
+
 class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
     WorkListSolver(DataflowAnalysis<Node, Fact> analysis) {
@@ -35,10 +37,58 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        var workList = new LinkedList<Node>();
+        for (Node node : cfg) {
+            workList.addLast(node);
+        }
+        while (!workList.isEmpty()) {
+            Node node = workList.removeFirst();
+            var meet = analysis.newInitialFact(); // result.getInFact(node);
+            for (Node pred : cfg.getPredsOf(node)) {
+                Fact outFact = result.getOutFact(pred);
+                analysis.meetInto(outFact, meet);
+            }
+            result.setInFact(node, meet);
+            var out = result.getOutFact(node);
+
+            if (analysis.transferNode(node, meet, out)) {
+                var succsOf = cfg.getSuccsOf(node);
+                for (Node suc : succsOf) {
+                    if (!workList.contains(suc)) {
+                        workList.addLast(suc);
+                    }
+                }
+            }
+            result.setOutFact(node, out);
+        }
     }
 
     @Override
     protected void doSolveBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        var workList = new LinkedList<Node>();
+        for (Node node : cfg) {
+            workList.addLast(node);
+        }
+        while (!workList.isEmpty()) {
+            Node node = workList.removeFirst();
+            var meet = analysis.newInitialFact(); // result.getInFact(node);
+            for (Node suc : cfg.getSuccsOf(node)) {
+                Fact outFact = result.getInFact(suc) ;
+                analysis.meetInto(outFact, meet);
+            }
+            result.setOutFact(node, meet);
+            var in = result.getInFact(node);
+
+            if (analysis.transferNode(node, meet, in)) {
+                var predsOf = cfg.getPredsOf(node);
+                for (Node suc : predsOf) {
+                    if (!workList.contains(suc)) {
+                        workList.addLast(suc);
+                    }
+                }
+            }
+            result.setOutFact(node, in);
+        }
     }
 }
